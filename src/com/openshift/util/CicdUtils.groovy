@@ -1,8 +1,8 @@
 package com.openshift.util
 
-class CicdUtilities {
+class CicdUtils {
     static def gBuild(script, args) {
-        echo " ${args} " 
+        println " ${args} " 
     }
 
 }
