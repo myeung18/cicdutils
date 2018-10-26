@@ -1,0 +1,17 @@
+pipeline {   
+  agent any
+  stages{
+      stage("Call OpenShift Test") {           
+          steps { 
+              script {
+                openshift.withCluster( 'https://192.168.99.100:8443', 'fPGEwgpEqTLKwZ-ND4d4tA66niHehV7tnzotlCBcvT4' ) {
+                    openshift.withProject( 'fisdemo' ) {
+                        echo "Hello from project ${openshift.project()} in cluster ${openshift.cluster()}"
+                    }
+                }
+              
+              }
+          }       
+      }
+  }
+}

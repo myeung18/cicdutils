@@ -1,0 +1,77 @@
+kind: "BuildConfig"
+apiVersion: "v1"
+metadata:
+  name: "just-to-say-hi-sample-pipeline"
+spec:
+  strategy:
+    jenkinsPipelineStrategy:
+      jenkinsfile: |-
+        // path of the template to use
+        def templatePath = 'https://raw.githubusercontent.com/RHsyseng/amq7/master/S2I-Base-Image/yaml_templates/amq_image_template.yaml'
+        def templateSinglePath = 'https://raw.githubusercontent.com/RHsyseng/amq7/master/S2I-Base-Image/yaml_templates/amq_single_template.yaml'
+        // name of the template that will be created
+        def templateName = 'amq7-refarch'
+        def imageName = 'amq7-image'
+        pipeline {
+            agent any
+            stages {
+                stage('preamble') {
+                    steps {
+                        script {
+                            openshift.withCluster() {
+                                openshift.withProject() {
+                                    echo "Using project: ${openshift.project()}"
+                                    echo "=============preamble=================================================="
+                                    
+                                    echo "Using this template with object"
+
+                                    openshift.newApp(templatePath)
+
+                                }
+                            } 
+                        }
+                    }
+                }
+                stage('build') {
+                    steps {
+                        script {
+                            openshift.withCluster() {
+                                openshift.withProject() {
+                                    echo "=============build=================================================="
+
+                                    def bld = openshift.startBuild(imageName)
+                                    bld.untilEach {
+                                        return (it.object().status.phase == "Complete")
+                                    }
+                                    bld.logs('-f')
+                                }
+                            }
+                        }
+                        sh 'echo "Finishing bulid in OpenSShift Jenkins"'
+                    }
+                }
+                stage('deploy') {
+                    steps {
+                        script {
+                            openshift.withCluster() {
+                                openshift.withProject() {
+                                    echo "=============deploy================================================="
+                                    openshift.newApp(templateSinglePath)
+                                }
+                            }
+                        }
+                        sh 'echo "finish deployment to OpenSShift in Jenkins"'
+                    }
+                }
+                stage('test') {
+                    steps {
+                        echo "===============Test================================================"
+                        sh '''echo "Hello from testing stages :TBD....."
+                            ls -lah
+                        
+                        '''
+                    }
+                }
+            }
+        } // pipeline
+      type: JenkinsPipeline

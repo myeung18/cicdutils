@@ -1,0 +1,15 @@
+
+pipeline {   
+  agent any
+  stages{
+      stage("Hello stage") {           
+          steps { 
+              script {
+                def verifyCall = load("/home/myeung/git/cicdutils/vars/verify.groovy")
+                verifyCall("Please verify this call.")
+              
+              }
+          }       
+      }
+  }
+}
