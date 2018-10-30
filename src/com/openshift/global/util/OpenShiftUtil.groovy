@@ -19,5 +19,4 @@ def call(String msg) {
     }
 }
 
-def
 return this
