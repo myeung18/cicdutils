@@ -14,7 +14,7 @@ def call(String msg) {
             echo "Hello from project ${openshift.project()} in cluster ${openshift.cluster()}"
 
 
-            openshift.newApp(templatePath) 
+            openshift.newApp('https://raw.githubusercontent.com/RHsyseng/amq7/master/S2I-Base-Image/yaml_templates/amq_image_template.yaml') 
         }
     }
 }
