@@ -11,9 +11,20 @@ def call(String msg) {
 
     openshift.withCluster( 'https://192.168.99.100:8443', 'hGku3oS9N25M69yQ_Np-2_LndFAtl6XJbGL41gXfVM8' ) {
         openshift.withProject( 'fisdemo' ) {
-            echo "Hello from project ${openshift.project()} in cluster ${openshift.cluster()}"
+            echo "Creating new app in project ${openshift.project()} in cluster ${openshift.cluster()}"
+            echo "=============creating============================================"
 
             openshift.newApp(templatePath)
+
+
+            echo "=============building============================================"
+
+            def bld = openshift.startBuild(imageName)
+            bld.untilEach {
+                return (it.object().status.phase == "Complete")
+            }
+            bld.logs('-f')
+
         }
     }
 }
