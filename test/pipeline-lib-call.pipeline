@@ -15,7 +15,11 @@ pipeline {
               script {
                 gBuild this, 'Dean to build it'
               
+              
+                def verifyCall = load("/home/myeung/git/cicdutils/vars/verify.groovy")
+                verifyCall("Please verify this call.")
               }
+
           }       
       }
   }
