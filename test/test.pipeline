@@ -13,3 +13,25 @@ pipeline {
       }
   }
 }
+
+
+//calling local class
+pipeline {   
+  agent any
+  stages{
+      stage ("source") {
+          steps {
+            echo 'testing to call groovy class in local machine.' 
+          }
+      }
+      stage("Loading stage") {           
+          steps { 
+              script {
+                def classCall = load("/home/myeung/git/cicdutils/src/com/openshift/util/CicdUtils.groovy")
+                classCall.gBuild(this, "Please verify this call.")
+              }
+
+          }       
+      }
+  }
+}
