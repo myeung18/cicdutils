@@ -16,7 +16,6 @@ def call(String msg) {
 
             openshift.newApp(templatePath)
 
-
             echo "=============building============================================"
 
             def bld = openshift.startBuild(imageName)
