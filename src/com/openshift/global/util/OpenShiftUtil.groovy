@@ -7,18 +7,18 @@ def buildAmq7(String msg) {
             echo "Creating new app in project ${openshift.project()} in cluster ${openshift.cluster()}"
             echo "=============creating============================================"
 
-            openshift.newApp(${params.TEMPLATEPATH})
+            openshift.newApp(params.TEMPLATEPATH)
 
             echo "=============building============================================"
 
-            def bld = openshift.startBuild(${params.IMAGENAME})
+            def bld = openshift.startBuild(params.IMAGENAME)
             bld.untilEach {
                 return (it.object().status.phase == "Complete")
             }
             bld.logs('-f')
 
             echo "=============deploy single broker template====================================="
-            openshift.newApp(${params.SINGLETEMPLATEPATH}) 
+            openshift.newApp(params.SINGLETEMPLATEPATH) 
 
         }
     }
