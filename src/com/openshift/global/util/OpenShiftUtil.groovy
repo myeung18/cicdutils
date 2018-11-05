@@ -1,5 +1,8 @@
 
 package com.openshift.global.util
+def buildAmq7(String msg) {
+    println "hello from build amq7 "
+}
 
 def call(String msg) {
     println "Hello --  ${msg}"
@@ -23,7 +26,6 @@ def call(String msg) {
                 return (it.object().status.phase == "Complete")
             }
             bld.logs('-f')
-
         }
     }
 }
