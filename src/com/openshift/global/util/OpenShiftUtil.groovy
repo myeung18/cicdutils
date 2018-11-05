@@ -11,14 +11,14 @@ def buildAmq7(String msg) {
 
             echo "=============building============================================"
 
-            #def bld = openshift.startBuild(params.IMAGENAME)
-            #bld.untilEach {
-            #    return (it.object().status.phase == "Complete")
-            #}
-            # bld.logs('-f')
+            //def bld = openshift.startBuild(params.IMAGENAME)
+            //bld.untilEach {
+            //    return (it.object().status.phase == "Complete")
+           //}
+            // bld.logs('-f')
 
             echo "=============deploy single broker template====================================="
-           # openshift.newApp(params.SINGLETEMPLATEPATH) 
+           // openshift.newApp(params.SINGLETEMPLATEPATH) 
 
         }
     }
