@@ -1,7 +1,27 @@
-
 package com.openshift.global.util
+
 def buildAmq7(String msg) {
-    println "hello from build amq7 ${params.TEMPLATENAME} "
+    println "Building AMQ 7 Reference Architecture. "
+    openshift.withCluster() {
+        openshift.withProject() {
+            echo "Creating new app in project ${openshift.project()} in cluster ${openshift.cluster()}"
+            echo "=============creating============================================"
+
+            openshift.newApp(${params.TEMPLATEPATH})
+
+            echo "=============building============================================"
+
+            def bld = openshift.startBuild(${params.IMAGENAME})
+            bld.untilEach {
+                return (it.object().status.phase == "Complete")
+            }
+            bld.logs('-f')
+
+            echo "=============deploy single broker template====================================="
+            openshift.newApp(${params.SINGLETEMPLATEPATH}) 
+
+        }
+    }
 }
 
 def call(String msg) {
