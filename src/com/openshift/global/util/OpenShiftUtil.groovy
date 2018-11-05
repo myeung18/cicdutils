@@ -1,7 +1,7 @@
 
 package com.openshift.global.util
 def buildAmq7(String msg) {
-    println "hello from build amq7 "
+    println "hello from build amq7 ${params.TEMPLATENAME} "
 }
 
 def call(String msg) {
