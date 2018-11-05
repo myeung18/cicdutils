@@ -2,7 +2,7 @@ package com.openshift.global.util
 
 def buildAmq7(String msg) {
     println "Building AMQ 7 Reference Architecture. "
-    openshift.withCluster('openshit_cluster') {
+    openshift.withCluster( params.OPENSHIFT_CLUSTER ) {
         openshift.withProject() {
             echo "Creating new app in project ${openshift.project()} in cluster ${openshift.cluster()}"
             echo "=============creating============================================"
