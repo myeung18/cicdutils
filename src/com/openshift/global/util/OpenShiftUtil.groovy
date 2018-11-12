@@ -18,7 +18,7 @@ def buildAmq7(String msg) {
             bld.logs('-f')
 
             echo "=============deploy single broker template====================================="
-           // openshift.newApp(params.SINGLETEMPLATEPATH) 
+            openshift.newApp(params.SINGLETEMPLATEPATH) 
 
         }
     }
