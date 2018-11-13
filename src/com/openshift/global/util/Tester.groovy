@@ -32,4 +32,11 @@ def call(String msg) {
      
 }
 
+def buildArtifact() {
+    stage("build the artifact") {
+        echo "build it"
+        sh "ls -last"
+    }
+}
+
 return this
