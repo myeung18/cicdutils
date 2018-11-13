@@ -8,8 +8,8 @@ def call(String msg, script) {
     sh "ls -last"
  
     //first define openshift credential and cluster entry in Jenkins console
-    openshift.withCluster( 'localhost') {
-        openshift.withProject( 'fisdemo' ) {
+    openshift.withCluster() {
+        openshift.withProject( 'justfortesting' ) {
             echo "Creating new app in project ${openshift.project()} in cluster ${openshift.cluster()}"
             echo "=============creating============================================"
 
