@@ -20,7 +20,7 @@ def call(String msg) {
                                 echo "=============creating============================================"
 
 
-                                echo "=============building=======${params.TEMPLATE_PATH}====================================="
+                                echo "=============building=======${params.TEMPLATE_PATH}=============="
 
                             }
                         }
