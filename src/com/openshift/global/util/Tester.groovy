@@ -3,7 +3,7 @@ package com.openshift.global.util
 def call(String msg, script) {
     println "Hello --  ${msg}"
     
-    println "Environment Variables : ${TIMEZONE} and ${params.TOKEN} "
+    println "Environment Variables : {TIMEZONE} and ${params.TOKEN} "
 
     sh "ls -last"
  
