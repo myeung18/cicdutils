@@ -132,3 +132,60 @@ pipeline {
       }
   }  
 }
+
+
+/*********************************************************/
+@Library('cicdutils@master')_
+def osUtil = new com.openshift.global.util.FullPipe()
+
+pipeline {
+    agent any
+    tools {
+        maven 'maven-3'
+        jdk 'jdk1.8.0'
+        oc 'oc'
+    }
+    stages {
+        stage("Set OpenShift resurces creation") {
+            steps {
+                script {
+                    def libCall = load("/home/myeung/git/cicdutils/src/com/openshift/global/util/FullPipe.groovy")
+                    libCall.preparationWork()
+                }
+            }
+        }
+        stage('Checkout source codes') {
+            steps {
+                script { 
+                    //git 'https://github.com/myeung18/fuse-financial-cicd.git'
+                    def libCall = load("/home/myeung/git/cicdutils/src/com/openshift/global/util/FullPipe.groovy")
+                    libCall.checkOutSourceCode()
+                }
+            }
+        }
+        stage("Build and Test") {
+            steps {
+                script {
+                    def libCall = load("/home/myeung/git/cicdutils/src/com/openshift/global/util/FullPipe.groovy")
+                    libCall.buildAndTest()    
+                }
+            }
+        }
+    }
+    post {
+        success {
+            print "***************successful******************"
+        }
+        failure {
+            print "failure occurred."
+        }
+        aborted {
+            print "aborted it is weirded!"
+        }
+    }    
+}
+
+
+
+
+
