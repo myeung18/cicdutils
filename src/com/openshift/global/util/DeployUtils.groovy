@@ -1,8 +1,10 @@
 package com.openshift.global.util
 
-def cmdDeploy(args) {
-     println "passed in ${args} " 
+def cmdDeploy() {
+    println "passed in  ${env.serviceName} " 
     sh ''' 
+        
+        cd ${serviceName}
         
         mvn package -Dmaven.test.skip=true 
         
