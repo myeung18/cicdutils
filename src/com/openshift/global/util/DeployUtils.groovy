@@ -4,7 +4,7 @@ def cmdDeploy(args) {
      println "passed in ${args} " 
     sh ''' 
         
-        cd fisuser-service  
+        cd ${args}  
 
         mvn package -Dmaven.test.skip=true 
         
