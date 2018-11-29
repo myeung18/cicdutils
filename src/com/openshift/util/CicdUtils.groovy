@@ -2,9 +2,10 @@ package com.openshift.util
 
 class CicdUtils {
     static def cmdDeploy(args) {
+         println "passd in ${args} " 
         sh ''' 
             
-            cd ${args}
+            cd fisuser-service  
 
             mvn package -Dmaven.test.skip=true 
             
