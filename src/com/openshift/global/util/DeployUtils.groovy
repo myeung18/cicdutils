@@ -4,8 +4,6 @@ def cmdDeploy(args) {
      println "passed in ${args} " 
     sh ''' 
         
-        cd ${args}  
-
         mvn package -Dmaven.test.skip=true 
         
         oc login https://master.rhdp.ocp.cloud.lab.eng.bos.redhat.com:8443 --token=WddnuYe5y7_7CslKND9tWdS2vn6CRLR5eRu5OlOrITI 
