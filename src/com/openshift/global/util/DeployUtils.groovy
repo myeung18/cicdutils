@@ -21,7 +21,7 @@ def cmdNpmDeploy() {
     sh '''
         cd ${serviceName}
 
-        oc login https://master.rhdp.ocp.cloud.lab.eng.bos.redhat.com:8443 --token=iLJqUd4yHDwpn_kZigpNi-QwNSCC9H-IOYZJQ_b0oPo 
+        oc login ${openShiftHost} --token=${openShiftToken} 
         
         oc project justfortesting                    
 
