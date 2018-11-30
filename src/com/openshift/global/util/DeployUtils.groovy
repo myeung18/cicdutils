@@ -8,8 +8,8 @@ def cmdDeploy() {
         
         mvn package -Dmaven.test.skip=true 
         
-        oc login https://master.rhdp.ocp.cloud.lab.eng.bos.redhat.com:8443 --token=WddnuYe5y7_7CslKND9tWdS2vn6CRLR5eRu5OlOrITI 
-        
+        oc login https://master.rhdp.ocp.cloud.lab.eng.bos.redhat.com:8443 --token=iLJqUd4yHDwpn_kZigpNi-QwNSCC9H-IOYZJQ_b0oPo 
+
         oc project justfortesting                    
 
         mvn fabric8:deploy -Dmaven.test.skip=true -Dmysql-service-username=root -Dmysql-service-password=ncPIGN8cKa5Aki4c   
@@ -21,7 +21,7 @@ def cmdNpmDeploy() {
     sh '''
         cd ${serviceName}
 
-        oc login https://master.rhdp.ocp.cloud.lab.eng.bos.redhat.com:8443 --token=WddnuYe5y7_7CslKND9tWdS2vn6CRLR5eRu5OlOrITI 
+        oc login https://master.rhdp.ocp.cloud.lab.eng.bos.redhat.com:8443 --token=iLJqUd4yHDwpn_kZigpNi-QwNSCC9H-IOYZJQ_b0oPo 
         
         oc project justfortesting                    
 
