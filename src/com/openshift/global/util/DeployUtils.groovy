@@ -2,6 +2,7 @@ package com.openshift.global.util
 
 def cmdDeploy() {
     println "passed in  ${env.serviceName} " 
+    node('maven') {
     sh ''' 
         
         cd ${serviceName}
@@ -11,7 +12,8 @@ def cmdDeploy() {
         oc project justfortesting                    
 
         mvn fabric8:deploy -Dmaven.test.skip=true -Dmysql-service-username=root -Dmysql-service-password=ncPIGN8cKa5Aki4c   
-    '''
+        '''
+    }
 }
 
 def cmdNpmDeploy() {
