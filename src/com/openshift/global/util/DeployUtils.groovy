@@ -16,4 +16,19 @@ def cmdDeploy() {
     '''
 }
 
+def cmdNpmDeploy() {
+    println "passed in  ${env.serviceName} " 
+    sh '''
+        cd ${serviceName}
+
+        oc login https://master.rhdp.ocp.cloud.lab.eng.bos.redhat.com:8443 --token=WddnuYe5y7_7CslKND9tWdS2vn6CRLR5eRu5OlOrITI 
+        
+        oc project justfortesting                    
+
+        export PATH=$PATH:/usr/local/bin 
+            
+        npm install && npm run openshift
+    '''
+}
+    
 
