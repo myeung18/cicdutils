@@ -7,9 +7,7 @@ def cmdDeploy() {
         cd ${serviceName}
         
         mvn package -Dmaven.test.skip=true 
-        
-        oc login https://master.rhdp.ocp.cloud.lab.eng.bos.redhat.com:8443 --token=iLJqUd4yHDwpn_kZigpNi-QwNSCC9H-IOYZJQ_b0oPo 
-
+        oc login ${openShiftHost} --token=${openShiftToken} 
         oc project justfortesting                    
 
         mvn fabric8:deploy -Dmaven.test.skip=true -Dmysql-service-username=root -Dmysql-service-password=ncPIGN8cKa5Aki4c   
@@ -22,7 +20,6 @@ def cmdNpmDeploy() {
         cd ${serviceName}
 
         oc login ${openShiftHost} --token=${openShiftToken} 
-        
         oc project justfortesting                    
 
         export PATH=$PATH:/usr/local/bin 
