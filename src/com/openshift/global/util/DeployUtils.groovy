@@ -7,7 +7,7 @@ def cmdDeploy() {
         cd ${serviceName}
         
         mvn package -Dmaven.test.skip=true 
-        oc login ${openShiftHost} --token=${openShiftToken} 
+        oc login ${openShiftHost} --token=${openShiftToken} --insecure-skip-tls-verify
         oc project justfortesting                    
 
         mvn fabric8:deploy -Dmaven.test.skip=true -Dmysql-service-username=root -Dmysql-service-password=ncPIGN8cKa5Aki4c   
@@ -19,7 +19,7 @@ def cmdNpmDeploy() {
     sh '''
         cd ${serviceName}
 
-        oc login ${openShiftHost} --token=${openShiftToken} 
+        oc login ${openShiftHost} --token=${openShiftToken} --insecure-skip-tls-verify 
         oc project justfortesting                    
 
         export PATH=$PATH:/usr/local/bin 
