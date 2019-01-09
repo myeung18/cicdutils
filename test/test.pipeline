@@ -36,7 +36,37 @@ pipeline {
   }
 }
 
+/*********************************************************************************/
 
+pipeline {   
+  agent any
+  parameters {
+    string (defaultValue: 'eng-lab', name:'CLUSTER', description:'open shift cluster')
+  }
+  tools {
+      oc 'oc'
+  }
+  stages{
+      stage("Go to Lab") {           
+          steps { 
+              script {
+                openshift.withCluster( params.CLUSTER ) {
+                    openshift.withProject( 'rh-prod' ) {
+                        echo "Hello from project ${openshift.project()} in cluster ${openshift.cluster()}"
+
+                        def saSelector = openshift.selector( 'serviceaccount' )
+                    
+                        // Prints `oc describe serviceaccount` to Jenkins console
+                        saSelector.describe()
+
+                    }
+                }
+              
+              }
+          }       
+      }      
+  }
+}
 /*************calling with environment and parameters **************/
 @Library('cicdutils@master')_
 
@@ -202,3 +232,221 @@ stage('Wait for user to input text?') {
     }
 
 }
+/*********************************************************/
+//multiple choice parameters
+pipeline {
+    agent any
+    tools {
+        maven 'maven-3'
+        jdk 'jdk1.8.0'
+        oc 'oc'
+    }
+    parameters{ 
+        choice (
+            choices: ['fisuser','maingateway','fisalert','ui','all'],
+            description: 'supported modules',
+            name: 'DEPLOY_MODULE')
+        string(
+            name: 'OS_token',
+            defaultValue:"",
+            description: "Openshift Token")        
+
+    }
+
+    environment { 
+        openShiftHost = 'https://master.rhdp.ocp.cloud.lab.eng.bos.redhat.com:8443'
+        openShiftToken = '_km-0ze-iwrZ-AxuljO9HYB5NBkEYOcpR07oWs-Hh2c'
+    }    
+    stages {
+        stage ("source") {
+            steps {
+                git 'https://github.com/myeung18/3ScaleFuseAMQ'
+            }
+        }
+       stage('Build maingateway-service') {
+            environment { 
+                serviceName = 'maingateway-service'
+                projectName = 'rh-dev'
+            }
+            when {
+                expression {
+                    params.DEPLOY_MODULE == 'maingateway' || params.DEPLOY_MODULE == 'all'
+                }
+            }
+            steps {
+                echo "Building.. ${serviceName} "
+
+                echo "Deploying ${serviceName} to ${projectName}"
+
+            }
+        }
+        stage('Build fisuser') {
+            environment { 
+                serviceName = 'fisuser-service'
+            }
+            when { 
+                expression {
+                    params.DEPLOY_MODULE == 'fisuser' || params.DEPLOY_MODULE == 'all'
+                }
+            }
+            steps {
+                echo "Building.. this service name is:  $serviceName  "   
+
+                
+                echo 'calling method'
+                
+            }
+        }
+        stage('Pushing to Test') {
+            environment {
+                projectName = 'rh-test'
+                imageNameSpace = 'rh-dev'
+                srcTag = 'latest'
+                destTag = 'promoteTest'
+                serviceName = 'maingateway-service'
+            }
+            when {
+                expression {
+                    params.DEPLOY_MODULE == 'maingateway' || params.DEPLOY_MODULE == 'all'
+                }
+            }
+            steps {
+                echo "Deployment to ${projectName} "
+            }
+        }
+        stage('Pushing to UAT') {
+            steps {
+                echo 'Deploying....'
+            }
+        }
+    }
+}
+
+
+
+def buildAndDeploy(dirName, srvName, openshiftHost, openshiftToken) {
+    sh """
+        echo dirName: ${dirName} - ${srvName}  - ${openshiftHost} - ${openshiftToken}
+    """
+}
+
+
+
+
+/*********************************************************************************/
+        def templateName = 'amq7-refarch'
+        def imageName = 'amq7-image'
+        pipeline {
+            agent any
+            stages {
+                stage('preamble') {
+                    steps {
+                        script {
+                            openshift.withCluster() {
+                                openshift.withProject() {
+                                    echo "Using project: ${openshift.project()}"
+                                    echo "=============preamble=================================================="
+                                    
+                                    echo "Using this template with object"
+
+                                    openshift.newApp(templatePath)
+
+                                }
+                            } 
+                        }
+                    }
+                }
+                stage('build') {
+                    steps {
+                        script {
+                            openshift.withCluster() {
+                                openshift.withProject() {
+                                    echo "=============build=================================================="
+
+                                    def bld = openshift.startBuild(imageName)
+                                    bld.untilEach {
+                                        return (it.object().status.phase == "Complete")
+                                    }
+                                    bld.logs('-f')
+                                }
+                            }
+                        }
+                        sh 'echo "Finishing bulid in OpenSShift Jenkins"'
+                    }
+                }
+                stage('deploy') {
+                    steps {
+                        script {
+                            openshift.withCluster() {
+                                openshift.withProject() {
+                                    echo "=============deploy================================================="
+                                    openshift.newApp(templateSinglePath)
+                                }
+                            }
+                        }
+                        sh 'echo "finish deployment to OpenSShift in Jenkins"'
+                    }
+                }
+                stage('test') {
+                    steps {
+                        echo "===============Test================================================"
+                        sh '''echo "Hello from testing stages :TBD....."
+                            ls -lah
+                        
+                        '''
+                    }
+                }
+            }
+        } // pipeline
+
+
+
+         def promoteService (imageNamespace, projName, svcName) {
+             echo "Deploying service ${projName} to ${svcName}"
+             //openshiftDeploy(namespace: projName, deploymentConfig: svcName, waitTime: '300000')
+             script {
+                openshift.withCluster() {
+                  openshift.withProject( projName) {
+                    def bld = openshift.selector("bc", svcName).related('builds')
+                    bld.untilEach {
+                        return (it.object().status.phase == "Complete")
+                    }
+                    bld.logs('-f')
+                  }
+                }
+             }
+         }
+
+
+         def promoteService (imageNamespace, projName, svcName) {
+             echo "Deploying service ${projName} to ${svcName}"
+             //openshiftDeploy(namespace: projName, deploymentConfig: svcName, waitTime: '300000')
+             script {
+                openshift.withCluster() {
+                  
+                  openshift.withProject( projName) {
+                    
+                    def bld = openshift.selector("dc", svcName).related('deploy')
+                    
+                  }
+                  
+                } //
+             }
+         }
+         def promoteService (imageNamespace, projName, svcName) {
+             echo "Deploying service ${projName} to ${svcName}"
+             //openshiftDeploy(namespace: projName, deploymentConfig: svcName, waitTime: '300000')
+             script {
+                openshift.withCluster() {
+                  
+                  openshift.withProject( projName) {
+                    
+                    def bld = openshift.selector("dc", svcName).related('deploy')
+                    bld.untilEach(1) {
+                      return it.object().status.phase == "Complete"        
+                    }
+                  }
+                  
+                } //
+             }
+         }
