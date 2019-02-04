@@ -1,19 +1,31 @@
+@Library('cicdutils@master') 
+import static com.openshift.util.CicdUtils.*
 
 pipeline {   
   agent any
   stages{
+      stage ("source") {
+          steps {
+            git 'https://github.com/myeung18/cicdutils'      
+          }
+        
+      }
       stage("Hello stage") {           
           steps { 
               script {
+                gBuild this, 'Dean to build it'
+              
+              
                 def verifyCall = load("/home/myeung/git/cicdutils/vars/verify.groovy")
                 verifyCall("Please verify this call.")
-              
               }
+
           }       
       }
   }
 }
 
+/*********************************************************************************/
 
 //calling local class
 pipeline {   
