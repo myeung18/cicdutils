@@ -1,0 +1,252 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+labels:
+    template: pipeline
+metadata:
+  annotations:
+    description: RHTE CICD Deployment Pipeline
+  name: pipeline
+parameters:
+- name: GIT_REPO
+  value: https://github.com/myeung18/IntegrationApp-Automation.git
+  required: true
+- name: GIT_BRANCH
+  value: imagetaggingbugfix
+  required: true
+- name: DEV_PROJECT 
+  required: true 
+- name: TEST_PROJECT 
+  required: true
+- name: PROD_PROJECT 
+  required: true
+- name: MYSQL_USER 
+  value: dbuser 
+  required: false
+- name: MYSQL_PWD
+  value: password 
+  required: false
+- name: IMAGE_REGISTRY
+  value: docker-registry.default.svc:5000
+  required: true
+- name: IMAGE_NAMESPACE 
+  required: true
+- name: API_BACK_END
+  value: http://maingateway-service-ah-dev2.app.rhdp.ocp.cloud.lab.eng.bos.redhat.com
+  required: true
+- name: END_POINT
+  value: https://fusecicd-apicast-staging.app.rhdp.ocp.cloud.lab.eng.bos.redhat.com
+  required: true
+- name: SANDBOX_END_POINT
+  value: https://fusecicd-apicast-staging.app.rhdp.ocp.cloud.lab.eng.bos.redhat.com
+  required: true
+- name: SWAGGER_FILE_NAME
+  displayName: SWAGGER_FILE_NAME
+  required: true
+  value: https://raw.githubusercontent.com/RHsyseng/IntegrationApp-Automation/master/cicd-3scale/groovy-scripts/openapi-spec.json
+  description: SWAGGER_FILE_NAME for 3Scale env
+- name: OPENSHIFT_SERVICE_NAME
+  value: 3scalefuse
+  required: true
+- name: THREESCALE_URL
+  displayName: Admin URL of Threescale
+  required: true
+  value: https://ah-3scale-ansible-admin.app.rhdp.ocp.cloud.lab.eng.bos.redhat.com
+  description: Admin URL of Threescale
+- name: API_TOKEN
+  displayName: Access token from 3scale 
+  required: true
+  value: 4a2a1ce5f6a7c5f6a67234d84f647f68b690e4931429d93c65e2bdf63a6a406f
+  description: Access token from 3scale for calling management API
+- name: THREESCALE_OPENSHIFT_PROJECT
+  displayName: API CAST Gateway Project or 3scale project name deployed on Openshift to create the routes
+  required: true
+  value: ah-3scale-ansible
+
+
+objects:
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    name: debug-test-pipeline
+    labels:
+      app: debug-test-pipeline
+  spec:
+    output: null
+    postCommit: null
+    resources: null
+    runPolicy: Serial
+    source:
+      type: None
+    source:
+      git:
+        uri: ${GIT_REPO}
+        ref: ${GIT_BRANCH}
+    strategy:
+      type: JenkinsPipeline
+      jenkinsPipelineStrategy:
+        jenkinsfile: |-
+            pipeline {
+                /*agent {
+                    node {
+                        label 'maven'
+                    }
+                }*/
+                agent any
+                parameters{ 
+                    string (defaultValue: 'notinuse', name:'OPENSHIFT_HOST', description:'open shift cluster url')
+                    string (defaultValue: 'notinuse', name:'OPENSHIFT_TOKEN', description:'open shift token')
+                    string (defaultValue: 'docker-registry.default.svc:5000', name:'IMAGE_REGISTRY', description:'open shift token')
+                    string (defaultValue: 'rh-dev', name:'IMAGE_NAMESPACE', description:'name space where image deployed')
+                    string (defaultValue: 'all', name:'DEPLOY_MODULE', description:'target module to work on')
+                    string (defaultValue: 'rh-dev', name:'DEV_PROJECT', description:'build or development project')
+                    string (defaultValue: 'rh-test', name:'TEST_PROJECT', description:'Test project')
+                    string (defaultValue: 'rh-prod', name:'PROD_PROJECT', description:'Production project')
+                    string (defaultValue: 'https://github.com/myeung18/IntegrationApp-Automation.git', name:'GIT_REPO', description:'Git source')
+                    string (defaultValue: 'master', name:'GIT_BRANCH', description:'Git branch in the source git')
+                    string (defaultValue: 'dbuser', name:'MYSQL_USER', description:'My Sql user name')
+                    string (defaultValue: 'password', name:'MYSQL_PWD', description:'My Sql user password')
+                    booleanParam (defaultValue: false, name:'SELECT_BUILD_MODULE', description:'Select module to build (default: build all to dev and test)')
+                    booleanParam (defaultValue: false, name:'SELECT_DEPLOY_TO_PROD', description:'Approval to deploy to Production (default: no deployment to production)')
+                }
+                stages {
+                   stage('Build nodejsalert-ui') {
+                        environment { 
+                            serviceName = 'nodejsalert-ui'
+                        }
+                        when {
+                            expression {
+                                ((env.userSelModule == 'UI' || env.userSelModule == 'All' || params.SELECT_BUILD_MODULE == false)
+                                    && params.SELECT_DEPLOY_TO_PROD == false) 
+
+                            }
+                        }
+                        steps {
+                            echo "Building.. ${serviceName}"
+                          /*  node ('nodejs') {
+                                git url: params.GIT_REPO, branch: params.GIT_BRANCH                
+             
+                                script {
+                                    sh """
+                                    cd ${serviceName}
+
+                                    oc project ${DEV_PROJECT}
+
+                                    npm install && npm run openshift
+                                    """
+                                }
+                            } */
+                        }
+                    }
+
+                    stage('Pushing to Test - nodejsalert') {
+                        environment {
+                            srcTag = 'latest'
+                            destTag = 'promoteTest'
+                        }
+                       when {
+                           expression {
+                               ((env.userSelModule == 'UI' || env.userSelModule == 'All' || params.SELECT_BUILD_MODULE == false)
+                                    && params.SELECT_DEPLOY_TO_PROD == false) 
+                           }
+                       }
+                        steps {
+                            echo "Deploy to ${TEST_PROJECT} "
+                            promoteServiceSetup(params.OPENSHIFT_HOST, params.OPENSHIFT_TOKEN, 'nodejsalert-ui',params.IMAGE_REGISTRY, params.IMAGE_NAMESPACE, env.destTag, params.TEST_PROJECT)
+                            promoteService(params.IMAGE_NAMESPACE, params.TEST_PROJECT, 'nodejsalert-ui', env.srcTag, env.destTag)
+                        }
+                    }
+                }
+            } //pipeline
+            def setEnvForDBModule(openShiftHost, openShiftToken, svcName, projName, mysqlUser, mysqlPwd) {
+                try {
+                sh """ 
+                    oc set env dc ${svcName} MYSQL_SERVICE_NAME=mysql -n ${projName} 2> /dev/null
+                    oc set env dc ${svcName} MYSQL_SERVICE_USERNAME=${mysqlUser} -n ${projName} 2> /dev/null
+                    oc set env dc ${svcName} MYSQL_SERVICE_PASSWORD=${mysqlPwd} -n ${projName} 2> /dev/null
+                    oc set env dc ${svcName} JAVA_APP_DIR=/deployments -n ${projName} 2> /dev/null
+                    oc rollout cancel dc ${svcName} -n ${projName} -n ${projName} 2> /dev/null
+
+                """
+                } catch (Exception e) {
+                  echo "skip the db environment variable setup, the resources may already exist. " + e.getMessage();
+                }
+            }
+            def promoteServiceSetup(openShiftHost, openShiftToken, svcName,registry,imageNameSpace, tagName, projName) {
+                try {
+                    sh """
+                        oc delete dc ${svcName} -n ${projName} 2> /dev/null
+                    """
+                } catch (Exception e) {
+                    echo "skip dc/svc/route cleanup related exception, the resource may not exist. " + e.getMessage();
+                }
+                try {
+                    sh """ 
+                        oc create dc ${svcName} --image=${registry}/${imageNameSpace}/${svcName}:${tagName} -n ${projName} 2> /dev/null     
+                        oc rollout pause dc ${svcName} -n ${projName} 2> /dev/null 
+                        oc patch dc ${svcName} -p '{"spec": {"template": {"spec": {"containers": [{"name": "default-container","imagePullPolicy": "Always"}]}}}}' -n ${projName} 2> /dev/null
+                        oc set env dc ${svcName} APP_NAME=${svcName} -n ${projName} 2> /dev/null 
+                        oc rollout resume dc ${svcName} -n ${projName} 2> /dev/null 
+                        oc expose dc ${svcName} --port=80 --protocol=TCP --target-port=808 -n ${projName} 2> /dev/null 
+                        oc expose svc ${svcName} --name=${svcName} -n ${projName} 2> /dev/null 
+                    """
+                } catch (Exception e) {
+                  echo "skip dc/svc/route creation related exception, the resource may already exist. " + e.getMessage();
+                }
+
+            }
+            def promoteService (imageNamespace, projName, svcName, sourceTag, destinationTag) {
+                script {
+                     openshift.withCluster() {
+                         openshift.withProject( imageNamespace ) {
+                             echo "tagging the build for ${projName} ${sourceTag} to ${destinationTag} in ${imageNamespace} "
+                             openshift.tag("${svcName}:${sourceTag}", "${svcName}:${destinationTag}")
+                         }
+                     }
+                     echo "deploying the ${svcName} to ${projName} "
+                     openshift.withCluster() {
+                         openshift.withProject( projName) {
+                            def dply = openshift.selector("dc", svcName)
+                            echo "waiting for ... "+ dply.rollout().status()
+                         }
+                     }
+                 }//script
+            }
+
+        env:
+        - name: GIT_BRANCH
+          value: ${GIT_BRANCH}
+        - name: GIT_REPO
+          value: ${GIT_REPO}
+        - name: DEV_PROJECT 
+          value: ${DEV_PROJECT}
+        - name: TEST_PROJECT 
+          value: ${TEST_PROJECT}
+        - name: PROD_PROJECT 
+          value: ${PROD_PROJECT}
+        - name: MYSQL_USER 
+          value: ${MYSQL_USER}
+        - name: MYSQL_PWD 
+          value: ${MYSQL_PWD}
+        - name: IMAGE_NAMESPACE 
+          value: ${IMAGE_NAMESPACE}
+        - name: IMAGE_REGISTRY 
+          value: ${IMAGE_REGISTRY}
+        - name: API_BACK_END 
+          value: ${API_BACK_END}
+        - name: END_POINT
+          value: ${END_POINT}
+        - name: SANDBOX_END_POINT
+          value: ${SANDBOX_END_POINT}
+        - name: OPENSHIFT_SERVICE_NAME
+          value: ${OPENSHIFT_SERVICE_NAME}
+        - name: THREESCALE_URL
+          value: ${THREESCALE_URL}
+        - name: API_TOKEN
+          value: ${API_TOKEN}
+        - name: MAJOR_VERSION
+          value: ${MAJOR_VERSION}
+        - name: SWAGGER_FILE_NAME
+          value: ${SWAGGER_FILE_NAME}
+        - name: THREESCALE_OPENSHIFT_PROJECT
+          value: ${THREESCALE_OPENSHIFT_PROJECT}
+       

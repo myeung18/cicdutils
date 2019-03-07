@@ -1,0 +1,335 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+labels:
+    template: pipeline
+metadata:
+  annotations:
+    description: RHTE CICD Deployment Pipeline
+  name: pipeline
+parameters:
+- name: GIT_REPO
+  value: https://github.com/myeung18/IntegrationApp-Automation.git
+  required: true
+- name: GIT_BRANCH
+  value: imagetaggingbugfix
+  required: true
+- name: DEV_PROJECT 
+  required: true 
+- name: TEST_PROJECT 
+  required: true
+- name: PROD_PROJECT 
+  required: true
+- name: MYSQL_USER 
+  value: dbuser 
+  required: false
+- name: MYSQL_PWD
+  value: password 
+  required: false
+- name: IMAGE_REGISTRY
+  value: docker-registry.default.svc:5000
+  required: true
+- name: IMAGE_NAMESPACE 
+  required: true
+
+objects:
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    name: debug-test-f-pipeline
+    labels:
+      app: debug-test-f-pipeline
+  spec:
+    output: null
+    postCommit: null
+    resources: null
+    runPolicy: Serial
+    source:
+      type: None
+    source:
+      git:
+        uri: ${GIT_REPO}
+        ref: ${GIT_BRANCH}
+    strategy:
+      type: JenkinsPipeline
+      jenkinsPipelineStrategy:
+        jenkinsfile: |-
+            pipeline {
+                agent {
+                    node {
+                        label 'maven'
+                    }
+                }
+                parameters{ 
+                    string (defaultValue: 'notinuse', name:'OPENSHIFT_HOST', description:'open shift cluster url')
+                    string (defaultValue: 'notinuse', name:'OPENSHIFT_TOKEN', description:'open shift token')
+                    string (defaultValue: 'docker-registry.default.svc:5000', name:'IMAGE_REGISTRY', description:'open shift token')
+                    string (defaultValue: 'rh-dev', name:'IMAGE_NAMESPACE', description:'name space where image deployed')
+                    string (defaultValue: 'all', name:'DEPLOY_MODULE', description:'target module to work on')
+                    string (defaultValue: 'rh-dev', name:'DEV_PROJECT', description:'build or development project')
+                    string (defaultValue: 'rh-test', name:'TEST_PROJECT', description:'Test project')
+                    string (defaultValue: 'rh-prod', name:'PROD_PROJECT', description:'Production project')
+                    string (defaultValue: 'https://github.com/myeung18/IntegrationApp-Automation.git', name:'GIT_REPO', description:'Git source')
+                    string (defaultValue: 'master', name:'GIT_BRANCH', description:'Git branch in the source git')
+                    string (defaultValue: 'dbuser', name:'MYSQL_USER', description:'My Sql user name')
+                    string (defaultValue: 'password', name:'MYSQL_PWD', description:'My Sql user password')
+                    booleanParam (defaultValue: true, name:'SELECT_BUILD_MODULE', description:'Select module to build (default: build all to dev and test)')
+                    booleanParam (defaultValue: false, name:'SELECT_DEPLOY_TO_PROD', description:'Approval to deploy to Production (default: no deployment to production)')
+                }
+                stages {
+                    stage ('source from git') {
+                        steps {
+                            git url: params.GIT_REPO, branch: params.GIT_BRANCH                
+                        }
+                    }
+                    stage('Build maingateway-service') {
+                        environment {
+                            serviceName = 'maingateway-service'
+                        }
+                        when {
+                            expression {
+                                params.SELECT_BUILD_MODULE == true 
+                            }
+                        }
+                        steps {
+                            echo "Building.. ${serviceName} "
+                            build(env.serviceName)
+
+                            echo "Deploying ${serviceName} to ${DEV_PROJECT}"
+                            deploy(env.serviceName, params.DEV_PROJECT, params.OPENSHIFT_HOST, params.OPENSHIFT_TOKEN, params.MYSQL_USER, params.MYSQL_PWD)
+
+                        }
+                    }
+                    stage('Build fisuser-service') {
+                        environment { 
+                            serviceName = 'fisuser-service'
+                        }
+                        when {
+                            expression {
+                                params.SELECT_BUILD_MODULE == true 
+                            }
+                        }
+                        steps {
+                            echo "Building.. ${serviceName} "
+                            build(env.serviceName)
+
+                            echo "Deploying ${serviceName} to ${DEV_PROJECT}"
+                            deploy(env.serviceName, params.DEV_PROJECT, params.OPENSHIFT_HOST, params.OPENSHIFT_TOKEN, params.MYSQL_USER, params.MYSQL_PWD)
+                       }
+                    }
+                    stage('Build fisalert-service') {
+                        environment { 
+                            serviceName = 'fisalert-service'
+                        }
+                        when {
+                            expression {
+                                params.SELECT_BUILD_MODULE == true 
+                            }
+                        }
+                        steps {
+                            echo "Building.. ${serviceName} "
+                            build(env.serviceName)
+
+                            echo "Deploying ${serviceName} to ${DEV_PROJECT}"
+                            deploy(env.serviceName, params.DEV_PROJECT, params.OPENSHIFT_HOST, params.OPENSHIFT_TOKEN, params.MYSQL_USER, params.MYSQL_PWD)
+                        }
+                    }
+                   stage('Build nodejsalert-ui') {
+                        environment { 
+                            serviceName = 'nodejsalert-ui'
+                        }
+                        when {
+                            expression {
+                                params.SELECT_BUILD_MODULE == true 
+                            }
+                        }
+                        steps {
+                            echo "Building.. ${serviceName} branch ${GIT_BRANCH} "
+                            node ('nodejs') {
+                                git url: params.GIT_REPO, branch: params.GIT_BRANCH                
+             
+                                script {
+                                    sh """
+                                    cd ${serviceName}
+
+                                    oc project ${DEV_PROJECT}
+
+                                    npm install && npm run openshift
+                                    """
+                                }
+                            }//
+                        }
+                    }
+                   stage('Pushing to Test - maingateway') {
+                       environment {
+                           srcTag = 'latest'
+                           destTag = 'promoteTest'
+                       }
+                       when {
+                           expression {
+                                (params.SELECT_BUILD_MODULE == false || params.SELECT_BUILD_MODULE == true)
+                           }
+                       }
+                       steps {
+                           echo "Deploy to ${TEST_PROJECT} "
+                           promoteServiceSetup(params.OPENSHIFT_HOST, params.OPENSHIFT_TOKEN, 'maingateway-service',params.IMAGE_REGISTRY, params.IMAGE_NAMESPACE, env.destTag, params.TEST_PROJECT)
+                           tagImage(params.IMAGE_NAMESPACE, params.TEST_PROJECT, 'maingateway-service', env.srcTag, env.destTag)
+                           promoteService(params.IMAGE_NAMESPACE, params.TEST_PROJECT,'maingateway-service', env.srcTag, env.destTag)
+                       }
+                    }
+                    stage('Pushing to Test - fisuser') {
+                        environment {
+                            srcTag = 'latest'
+                            destTag = 'promoteTest'
+                        }
+                        when {
+                           expression {
+                                (params.SELECT_BUILD_MODULE == false || params.SELECT_BUILD_MODULE == true)
+                           }
+                        }
+                        steps {
+                            echo "Deploy to ${TEST_PROJECT} "
+                            promoteServiceSetup(params.OPENSHIFT_HOST, params.OPENSHIFT_TOKEN, 'fisuser-service',params.IMAGE_REGISTRY, params.IMAGE_NAMESPACE, env.destTag, params.TEST_PROJECT)    
+                            setEnvForDBModule(params.OPENSHIFT_HOST, params.OPENSHIFT_TOKEN, 'fisuser-service', params.TEST_PROJECT,  params.MYSQL_USER, params.MYSQL_PWD)
+                            tagImage(params.IMAGE_NAMESPACE, params.TEST_PROJECT, 'fisuser-service', env.srcTag, env.destTag)
+                            promoteService(params.IMAGE_NAMESPACE, params.TEST_PROJECT, 'fisuser-service', env.srcTag, env.destTag)
+                        }
+                    }
+                    stage('Pushing to Test - fisalert') {
+                       environment {
+                            srcTag = 'latest'
+                            destTag = 'promoteTest'
+                       }
+                       when {
+                           expression {
+                                (params.SELECT_BUILD_MODULE == false || params.SELECT_BUILD_MODULE == true)
+                           }
+                       }
+                        steps {
+                            echo "Deploy to ${TEST_PROJECT} "
+                            promoteServiceSetup(params.OPENSHIFT_HOST, params.OPENSHIFT_TOKEN, 'fisalert-service',params.IMAGE_REGISTRY, params.IMAGE_NAMESPACE, env.destTag, params.TEST_PROJECT)
+                            tagImage(params.IMAGE_NAMESPACE, params.TEST_PROJECT, 'fisalert-service', env.srcTag, env.destTag)
+                            promoteService(params.IMAGE_NAMESPACE, params.TEST_PROJECT, 'fisalert-service', env.srcTag, env.destTag)
+                        }
+                    }
+
+                    stage('Pushing to Test - nodejsalert') {
+                        environment {
+                            srcTag = 'latest'
+                            destTag = 'promoteTest'
+                        }
+                       when {
+                           expression {
+                                (params.SELECT_BUILD_MODULE == false || params.SELECT_BUILD_MODULE == true)
+                           }
+                       }
+                        steps {
+                            echo "Deploy to ${TEST_PROJECT} "
+                            promoteServiceSetup(params.OPENSHIFT_HOST, params.OPENSHIFT_TOKEN, 'nodejsalert-ui',params.IMAGE_REGISTRY, params.IMAGE_NAMESPACE, env.destTag, params.TEST_PROJECT)
+                            tagImage(params.IMAGE_NAMESPACE, params.TEST_PROJECT, 'nodejsalert-ui', env.srcTag, env.destTag)
+                            promoteService(params.IMAGE_NAMESPACE, params.TEST_PROJECT, 'nodejsalert-ui', env.srcTag, env.destTag)
+                        }
+                    }
+                }
+            } //pipeline
+
+            def build(folderName) {
+                sh """
+
+                cd ${folderName}
+                
+                mvn package -Dmaven.test.skip=true 
+                """
+            }
+            def deploy(folderName, projName, openShiftHost, openShiftToken, mysqlUser, mysqlPwd) {
+                sh """
+                cd ${folderName}
+
+                oc project ${projName} 
+
+                mvn fabric8:deploy -Dmaven.test.skip=true -Dmysql-service-username=${mysqlUser} -Dmysql-service-password=${mysqlPwd}
+                """
+            }
+                        
+            
+            def setEnvForDBModule(openShiftHost, openShiftToken, svcName, projName, mysqlUser, mysqlPwd) {
+                try {
+                sh """ 
+                    oc set env dc ${svcName} MYSQL_SERVICE_NAME=mysql -n ${projName} 2> /dev/null
+                    oc set env dc ${svcName} MYSQL_SERVICE_USERNAME=${mysqlUser} -n ${projName} 2> /dev/null
+                    oc set env dc ${svcName} MYSQL_SERVICE_PASSWORD=${mysqlPwd} -n ${projName} 2> /dev/null
+                    oc set env dc ${svcName} JAVA_APP_DIR=/deployments -n ${projName} 2> /dev/null
+                    oc rollout cancel dc ${svcName} -n ${projName} -n ${projName} 2> /dev/null
+
+                """
+                } catch (Exception e) {
+                  echo "skip the db environment variable setup, the resources may already exist. " + e.getMessage();
+                }
+            }
+            def promoteServiceSetup(openShiftHost, openShiftToken, svcName,registry,imageNameSpace, tagName, projName) {
+                try {
+                    sh """
+                        oc delete dc ${svcName} -n ${projName} 2> /dev/null
+                    """
+                } catch (Exception e) {
+                    echo "skip dc/svc/route cleanup related exception, the resource may not exist. " + e.getMessage();
+                }
+                try {
+                    sh """ 
+                        oc create dc ${svcName} --image=${registry}/${imageNameSpace}/${svcName}:${tagName} -n ${projName} 2> /dev/null     
+                        oc set env dc ${svcName} APP_NAME=${svcName} -n ${projName} 2> /dev/null 
+                        oc rollout cancel dc ${svcName} -n ${projName} 2> /dev/null 
+                        oc expose dc ${svcName} --type=ClusterIP  --port=80 --protocol=TCP --target-port=8080 -n ${projName} 2> /dev/null 
+                        oc expose svc ${svcName} --name=${svcName} -n ${projName} 2> /dev/null 
+                    """
+                } catch (Exception e) {
+                  echo "skip dc/svc/route creation related exception, the resource may already exist. " + e.getMessage();
+                }
+
+            }
+            def tagImage(imageNamespace, projName, svcName, sourceTag, destinationTag) {
+                script {
+                     openshift.withCluster() {
+                         openshift.withProject( imageNamespace ) {
+                             echo "tagging the build for ${projName} ${sourceTag} to ${destinationTag} in ${imageNamespace} "
+                             openshift.tag("${svcName}:${sourceTag}", "${svcName}:${destinationTag}")
+                         }
+                     }
+                 }
+            }
+            def promoteService (imageNamespace, projName, svcName, sourceTag, destinationTag) {
+                script {
+                     /* openshift.withCluster() {
+                         openshift.withProject( imageNamespace ) {
+                             echo "tagging the build for ${projName} ${sourceTag} to ${destinationTag} in ${imageNamespace} "
+                             openshift.tag("${svcName}:${sourceTag}", "${svcName}:${destinationTag}")
+                         }
+                     } */
+                     echo "deploying the ${svcName} to ${projName} "
+                     openshift.withCluster() {
+                         openshift.withProject( projName) {
+                            def dply = openshift.selector("dc", svcName)
+                            echo "waiting for ... "+ dply.rollout().status()
+                         }
+                     }
+                 }//script
+            }
+
+        env:
+        - name: GIT_BRANCH
+          value: ${GIT_BRANCH}
+        - name: GIT_REPO
+          value: ${GIT_REPO}
+        - name: DEV_PROJECT 
+          value: ${DEV_PROJECT}
+        - name: TEST_PROJECT 
+          value: ${TEST_PROJECT}
+        - name: PROD_PROJECT 
+          value: ${PROD_PROJECT}
+        - name: MYSQL_USER 
+          value: ${MYSQL_USER}
+        - name: MYSQL_PWD 
+          value: ${MYSQL_PWD}
+        - name: IMAGE_NAMESPACE 
+          value: ${IMAGE_NAMESPACE}
+        - name: IMAGE_REGISTRY 
+          value: ${IMAGE_REGISTRY}
